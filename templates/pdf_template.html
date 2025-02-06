@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Invoice #{{ bill.id }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .details { margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .totals { margin-top: 20px; float: right; }
+        .total-row { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div style="display: none;">
+        <p>Debug Info:</p>
+        <p>Bill ID: {{ bill.id }}</p>
+        <p>Customer: {{ bill.customer.name }} ({{ bill.customer.contact }})</p>
+        <p>Items Count: {{ bill_details|length }}</p>
+    </div>
+
+    <div class="header">
+        <h1>Medical Store Invoice</h1>
+        <p>Invoice #{{ bill.id }}</p>
+        <p>Date: {{ date }}</p>
+    </div>
+
+    <div class="details">
+        <h3>Customer Details</h3>
+        <p>Name: {{ bill.customer.name }}</p>
+        <p>Phone: {{ bill.customer.contact }}</p>
+        <p>Address: {{ bill.customer.address }}</p>
+    </div>
+
+    <h3>Items</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Medicine</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in bill_details %}
+            <tr>
+                <td>{{ item.medicine.name }}</td>
+                <td>{{ item.qty }}</td>
+                <td>₹{{ item.medicine.sell_price }}</td>
+                <td>₹{{ item.get_total_price }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="totals">
+        <table>
+            <tr>
+                <td>Subtotal:</td>
+                <td>₹{{ subtotal|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td>GST:</td>
+                <td>₹{{ gst_total|floatformat:2 }}</td>
+            </tr>
+            <tr class="total-row">
+                <td>Total:</td>
+                <td>₹{{ total|floatformat:2 }}</td>
+            </tr>
+        </table>
+    </div>
+</body>
+</html> 
