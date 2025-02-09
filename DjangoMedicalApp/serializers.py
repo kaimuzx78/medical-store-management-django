@@ -1,7 +1,8 @@
 from rest_framework import serializers
+from django.conf import settings
 
 from DjangoMedicalApp.models import Company, CompanyBank, Medicine, MedicalDetails, Employee, Customer, Bill, \
-    CustomerRequest, CompanyAccount, EmployeeBank, EmployeeSalary, BillDetails
+    CustomerRequest, CompanyAccount, EmployeeBank, EmployeeSalary, BillDetails, Order
 
 
 class CompanySerliazer(serializers.ModelSerializer):
@@ -127,4 +128,28 @@ class BillDetailsSerializer(serializers.ModelSerializer):
         if not data.get('medicine') or not data.get('qty', 0) > 0:
             raise serializers.ValidationError("Both medicine and quantity are required")
         return data
+
+class OrderSerializer(serializers.ModelSerializer):
+    medicine_name = serializers.CharField(source='medicine.name', read_only=True, required=False)
+    username = serializers.CharField(source='user.username', read_only=True)
+    prescription_url = serializers.SerializerMethodField()
+    
+    def get_prescription_url(self, obj):
+        if obj.prescription:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.prescription.url)
+            return obj.prescription.url
+        return None
+    
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'username', 'patient_name', 'age', 'gender',
+            'delivery_address', 'phone', 'medicine_name', 'quantity',
+            'buy_price', 'sell_price', 'total_cost', 'total_price', 'profit',
+            'payment_method', 'prescription', 'prescription_url',
+            'description', 'status', 'created_at', 'admin_note'
+        ]
+        read_only_fields = ['id', 'username', 'medicine_name', 'status', 'created_at', 'admin_note']
 

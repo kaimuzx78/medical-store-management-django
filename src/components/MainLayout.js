@@ -10,6 +10,7 @@ import {
 import {
   Logout as LogoutIcon,
   LocalHospital as LogoIcon,
+  ShoppingCart as ShoppingCartIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../utils/axiosInstance';

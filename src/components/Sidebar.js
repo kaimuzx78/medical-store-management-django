@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   List, 
   ListItem, 
@@ -7,9 +7,11 @@ import {
   useTheme,
   styled,
   Box,
-  Typography
+  Typography,
+  Badge,
+  Divider
 } from '@mui/material';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Dashboard as DashboardIcon,
   LocalHospital,
@@ -18,8 +20,13 @@ import {
   People,
   Receipt,
   Support,
-  BusinessOutlined
+  BusinessOutlined,
+  LocalPharmacy as MedicineIcon,
+  History as HistoryIcon,
+  ShoppingCart as OrderIcon,
+  NotificationsActive as RequestIcon
 } from '@mui/icons-material';
+import axiosInstance from '../utils/axios';
 
 const SidebarContainer = styled('div')(({ theme }) => ({
   width: 240,
@@ -112,48 +119,60 @@ const LogoSection = styled(Box)(({ theme }) => ({
   }
 }));
 
-const menuItems = [
-  { 
-    text: 'Dashboard', 
-    icon: <DashboardIcon />, 
-    path: '/dashboard' 
-  },
-  { 
-    text: 'Add Medicine',
-    icon: <AddCircle />,
-    path: '/add-medicine'
-  },
-  { 
-    text: 'Manage Medicine',
-    icon: <LocalHospital />,
-    path: '/manage-medicine'
-  },
-  { 
-    text: 'Manage Company',
-    icon: <BusinessOutlined />,
-    path: '/manage-company-account'
-  },
-  { 
-    text: 'Manage Employee', 
-    icon: <People />, 
-    path: '/manage-employee' 
-  },
-  { 
-    text: 'Generate Bill', 
-    icon: <Receipt />, 
-    path: '/generate-bill' 
-  },
-  { 
-    text: 'Customer Request', 
-    icon: <Support />, 
-    path: '/customer-request' 
-  },
-];
-
 const Sidebar = () => {
+  const navigate = useNavigate();
   const location = useLocation();
+  const [pendingOrders, setPendingOrders] = useState(0);
+  const [previousPendingCount, setPreviousPendingCount] = useState(0);
   const theme = useTheme();
-  const currentPath = location.pathname === '/' ? '/dashboard' : location.pathname;
+
+  useEffect(() => {
+    const fetchPendingOrders = async () => {
+      try {
+        const response = await axiosInstance.get('/api/admin/orders/');
+        const pending = response.data.data.filter(order => order.status === 'pending').length;
+        
+        if (pending > previousPendingCount) {
+          if (Notification.permission === 'granted') {
+            new Notification('New Medicine Order', {
+              body: 'You have a new pending medicine order',
+              icon: '/favicon.ico'
+            });
+          }
+        }
+        
+        setPreviousPendingCount(pending);
+        setPendingOrders(pending);
+      } catch (error) {
+        console.error('Error fetching pending orders:', error);
+      }
+    };
+
+    if (Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    fetchPendingOrders();
+    const interval = setInterval(fetchPendingOrders, 30000);
+    return () => clearInterval(interval);
+  }, [previousPendingCount]);
+
+  const menuItems = [
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+    { text: 'Add Medicine', icon: <MedicineIcon />, path: '/add-medicine' },
+    { text: 'Manage Medicine', icon: <MedicineIcon />, path: '/manage-medicine' },
+    { text: 'Company', icon: <BusinessOutlined />, path: '/manage-company-account' },
+    { text: 'Manage Employee', icon: <People />, path: '/manage-employee' },
+    { text: 'Generate Bill', icon: <Receipt />, path: '/generate-bill' },
+    { 
+      text: 'Medicine Orders', 
+      icon: <OrderIcon />, 
+      path: '/manage-orders',
+      badge: pendingOrders
+    },
+    { text: 'Customer Request', icon: <RequestIcon />, path: '/customer-request' },
+    { text: 'Bill History', icon: <HistoryIcon />, path: '/bill-history' },
+  ];
 
   return (
     <SidebarContainer>
@@ -190,10 +209,16 @@ const Sidebar = () => {
             component={Link}
             to={item.path}
             key={item.text}
-            isactive={(currentPath === item.path).toString()}
+            isactive={(location.pathname === item.path).toString()}
           >
             <ListItemIcon>
-              {item.icon}
+              {item.badge ? (
+                <Badge badgeContent={item.badge} color="error">
+                  {item.icon}
+                </Badge>
+              ) : (
+                item.icon
+              )}
             </ListItemIcon>
             <ListItemText primary={item.text} />
           </StyledListItem>

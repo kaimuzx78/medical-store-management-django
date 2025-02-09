@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.validators import RegexValidator
+from django.contrib.auth.models import User
 
 # Create your models here.
 class Company(models.Model):
@@ -149,6 +150,64 @@ class EmployeeBank(models.Model):
     employee_id=models.ForeignKey(Employee,on_delete=models.CASCADE)
     added_on=models.DateTimeField(auto_now_add=True)
     objects=models.Manager()
+
+class Order(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    medicine = models.ForeignKey(Medicine, on_delete=models.CASCADE, null=True, blank=True)
+    patient_name = models.CharField(max_length=100, default='')
+    age = models.IntegerField(null=True, blank=True)
+    gender = models.CharField(max_length=10, default='')
+    delivery_address = models.TextField(default='')
+    phone = models.CharField(max_length=15, default='')
+    buy_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    sell_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    quantity = models.IntegerField(null=True, blank=True)
+    total_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    profit = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    payment_method = models.CharField(
+        max_length=20, 
+        choices=[
+            ('cash', 'Cash on Delivery'),
+            ('upi', 'UPI'),
+            ('card', 'Card')
+        ],
+        default='cash'
+    )
+    prescription = models.FileField(upload_to='prescriptions/', null=True, blank=True)
+    description = models.TextField(blank=True, null=True)
+    status = models.CharField(
+        max_length=20, 
+        choices=[
+            ('pending', 'Pending'),
+            ('approved', 'Approved'),
+            ('rejected', 'Rejected'),
+            ('completed', 'Completed'),
+            ('cancelled', 'Cancelled')
+        ], 
+        default='pending'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    admin_note = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"Order #{self.id} - {self.patient_name}"
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def get_prescription_url(self):
+        if self.prescription:
+            return f'/media/{self.prescription}'
+        return None
+
+    def save(self, *args, **kwargs):
+        if self.buy_price and self.sell_price and self.quantity:
+            self.total_cost = self.buy_price * self.quantity
+            self.total_price = self.sell_price * self.quantity
+            self.profit = self.total_price - self.total_cost
+        super().save(*args, **kwargs)
 
 
 

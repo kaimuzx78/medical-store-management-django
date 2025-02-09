@@ -32,6 +32,15 @@ urlpatterns = [
     path('api/bills/<int:pk>/pdf/', views.GenerateBillViewSet.as_view({'get': 'pdf'})),
     path('api/bills/<int:pk>/delete_bill/', views.BillHistoryViewSet.as_view({'delete': 'delete_bill'})),
     path('api/bills/bulk_delete/', views.BillHistoryViewSet.as_view({'post': 'bulk_delete'})),
+    path('api/register/', views.RegisterUserView.as_view(), name='register'),
+    path('api/available-medicines/', views.AvailableMedicinesView.as_view(), name='available-medicines'),
+    path('api/user/orders/', views.UserOrderHistoryView.as_view(), name='user-orders'),
+    path('api/order-medicine/', views.OrderMedicineView.as_view(), name='order-medicine'),
+    path('api/admin/orders/stats/', views.AdminOrderView.as_view(), name='admin-orders-stats'),
+    path('api/admin/orders/<int:order_id>/', views.AdminOrderView.as_view(), name='admin-order-update'),
+    path('api/admin/orders/', views.AdminOrderView.as_view(), name='admin-orders'),
+    path('api/admin/orders/bulk-delete/', views.AdminOrderView.as_view(), name='admin-orders-bulk-delete'),
+    path('api/admin/orders/<int:order_id>/edit/', views.AdminOrderView.as_view(), name='admin-order-edit'),
 ]
 
 urlpatterns += router.urls 

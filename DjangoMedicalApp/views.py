@@ -28,13 +28,14 @@ from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 import phonenumbers
 from phonenumbers import NumberParseException
+from django.contrib.auth.models import User
 
 from DjangoMedicalApp.models import Company, CompanyBank, Medicine, MedicalDetails, CompanyAccount, Employee, \
-    EmployeeBank, EmployeeSalary, CustomerRequest, Bill, BillDetails, Customer
+    EmployeeBank, EmployeeSalary, CustomerRequest, Bill, BillDetails, Customer, Order
 from DjangoMedicalApp.serializers import CompanySerliazer, CompanyBankSerializer, MedicineSerliazer, \
     MedicalDetailsSerializer, MedicalDetailsSerializerSimple, CompanyAccountSerializer, EmployeeSerializer, \
     EmployeeBankSerializer, EmployeeSalarySerializer, CustomerSerializer, BillSerializer, BillDetailsSerializer, \
-    CustomerRequestSerializer
+    CustomerRequestSerializer, OrderSerializer
 
 try:
     # Windows path
@@ -1179,6 +1180,315 @@ class BillHistoryViewSet(viewsets.ViewSet):
                 "error": True,
                 "message": f"Error deleting bills: {str(e)}"
             }, status=500)
+
+class RegisterUserView(APIView):
+    def post(self, request):
+        try:
+            username = request.data.get('username')
+            password = request.data.get('password')
+            email = request.data.get('email')
+            
+            if User.objects.filter(username=username).exists():
+                return Response({
+                    'status': 'error',
+                    'message': 'Username already exists'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            user = User.objects.create_user(
+                username=username,
+                password=password,
+                email=email,
+                is_staff=False  # This ensures the user is not an admin
+            )
+            
+            return Response({
+                'status': 'success',
+                'message': 'User registered successfully'
+            })
+            
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+class AvailableMedicinesView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            medicines = Medicine.objects.filter(in_stock_total__gt=0)
+            serializer = MedicineSerliazer(medicines, many=True)
+            return Response({
+                "error": False,
+                "message": "Medicines fetched successfully",
+                "data": serializer.data
+            })
+        except Exception as e:
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+class UserOrderHistoryView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            # Assuming you have an Order model
+            orders = Order.objects.filter(user=request.user).order_by('-created_at')
+            serializer = OrderSerializer(orders, many=True)
+            return Response({
+                "error": False,
+                "message": "Orders fetched successfully",
+                "data": serializer.data
+            })
+        except Exception as e:
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+class OrderMedicineView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            prescription_file = request.FILES.get('prescription')
+            if not prescription_file:
+                return Response({
+                    "error": True,
+                    "message": "Prescription file is required"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Create order with prescription and a default total price
+            order = Order.objects.create(
+                user=request.user,
+                patient_name=request.data.get('patientName'),
+                age=request.data.get('age'),
+                gender=request.data.get('gender'),
+                delivery_address=request.data.get('address'),
+                phone=request.data.get('phone'),
+                payment_method=request.data.get('paymentMethod'),
+                description=request.data.get('description'),
+                prescription=prescription_file,
+                total_price=0.00  # Set initial total price to 0
+            )
+
+            return Response({
+                "error": False,
+                "message": "Order request submitted successfully",
+                "data": OrderSerializer(order).data
+            })
+        except Exception as e:
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+class AdminOrderView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_staff:
+            return Response({
+                "error": True,
+                "message": "Unauthorized"
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # If it's a stats request
+        if request.path.endswith('/stats/'):
+            return self.get_stats(request)
+            
+        # Regular orders list request
+        try:
+            orders = Order.objects.all().order_by('-created_at')
+            serializer = OrderSerializer(orders, many=True, context={'request': request})
+            return Response({
+                "error": False,
+                "message": "Orders fetched successfully",
+                "data": serializer.data
+            })
+        except Exception as e:
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    def get_stats(self, request):
+        try:
+            today = timezone.now().date()
+            
+            # Calculate total orders statistics
+            total_orders = Order.objects.count()
+            pending_orders = Order.objects.filter(status='pending').count()
+            completed_orders = Order.objects.filter(status='completed').count()
+            approved_orders = Order.objects.filter(status='approved').count()
+            
+            # Calculate all-time sales and profit
+            all_orders = Order.objects.filter(
+                status__in=['approved', 'completed']
+            ).aggregate(
+                total_sales=Sum('total_price'),
+                total_profit=Sum('profit'),
+                total_cost=Sum('total_cost')
+            )
+            
+            # Debug print
+            print("All Orders Aggregate:", all_orders)
+            
+            total_sales = float(all_orders['total_sales'] or 0)
+            total_profit = float(all_orders['total_profit'] or 0)
+            
+            # Calculate today's sales and profit
+            today_orders = Order.objects.filter(
+                status__in=['approved', 'completed'],
+                created_at__date=today
+            ).aggregate(
+                today_sales=Sum('total_price'),
+                today_profit=Sum('profit'),
+                today_cost=Sum('total_cost')
+            )
+            
+            # Debug print
+            print("Today's Orders Aggregate:", today_orders)
+            
+            today_sales = float(today_orders['today_sales'] or 0)
+            today_profit = float(today_orders['today_profit'] or 0)
+
+            response_data = {
+                "error": False,
+                "message": "Statistics fetched successfully",
+                "data": {
+                    "totalOrders": total_orders,
+                    "pendingOrders": pending_orders,
+                    "completedOrders": completed_orders + approved_orders,
+                    "totalSales": total_sales,
+                    "totalProfit": total_profit,
+                    "todaySales": today_sales,
+                    "todayProfit": today_profit,
+                    "approvedOrders": approved_orders,
+                    "totalActiveOrders": pending_orders + approved_orders,
+                    "totalCompletedOrders": completed_orders
+                }
+            }
+            
+            # Debug print
+            print("Response Data:", response_data)
+            
+            return Response(response_data)
+            
+        except Exception as e:
+            print(f"Error in get_stats: {str(e)}")
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request, order_id=None):
+        if not request.user.is_staff:
+            return Response({
+                "error": True,
+                "message": "Unauthorized"
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            order = Order.objects.get(id=order_id)
+            
+            # Debug print
+            print("Received data for edit:", request.data)
+            
+            # Update all fields that are present in the request
+            fields_to_update = [
+                'patient_name', 'age', 'gender', 'phone', 'delivery_address',
+                'payment_method', 'status', 'admin_note', 'buy_price',
+                'sell_price', 'quantity'
+            ]
+            
+            for field in fields_to_update:
+                if field in request.data and request.data[field] is not None:
+                    if field in ['buy_price', 'sell_price']:
+                        setattr(order, field, Decimal(str(request.data[field])))
+                    elif field == 'quantity':
+                        setattr(order, field, int(request.data[field]))
+                    else:
+                        setattr(order, field, request.data[field])
+
+            # Calculate totals if price fields are updated
+            if order.buy_price and order.sell_price and order.quantity:
+                order.total_cost = Decimal(str(order.buy_price)) * Decimal(str(order.quantity))
+                order.total_price = Decimal(str(order.sell_price)) * Decimal(str(order.quantity))
+                order.profit = order.total_price - order.total_cost
+
+            # Debug print
+            print(f"Order {order_id} updated values:")
+            print(f"Buy Price: {order.buy_price}")
+            print(f"Sell Price: {order.sell_price}")
+            print(f"Quantity: {order.quantity}")
+            print(f"Total Cost: {order.total_cost}")
+            print(f"Total Price: {order.total_price}")
+            print(f"Profit: {order.profit}")
+            
+            order.save()
+
+            # Return updated order data
+            serializer = OrderSerializer(order, context={'request': request})
+            return Response({
+                "error": False,
+                "message": "Order updated successfully",
+                "data": serializer.data
+            })
+
+        except Order.DoesNotExist:
+            return Response({
+                "error": True,
+                "message": "Order not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"Error updating order: {str(e)}")
+            print(f"Error type: {type(e)}")
+            print(f"Error args: {e.args}")
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request):
+        if not request.user.is_staff:
+            return Response({
+                "error": True,
+                "message": "Unauthorized"
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            order_ids = request.data.get('order_ids', [])
+            Order.objects.filter(id__in=order_ids).delete()
+            
+            return Response({
+                "error": False,
+                "message": "Orders deleted successfully"
+            })
+        except Exception as e:
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+def update_dashboard_data():
+    # Update your dashboard calculations here
+    # For example:
+    today = timezone.now().date()
+    today_orders = Order.objects.filter(
+        status='approved',
+        created_at__date=today
+    ).aggregate(
+        total_amount=Sum('total_price')
+    )
+    # Update other dashboard metrics as needed
 
 company_list=CompanyViewSet.as_view({"get":"list"})
 company_creat=CompanyViewSet.as_view({"post":"create"})

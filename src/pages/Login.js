@@ -9,7 +9,9 @@ import {
   Paper,
   Alert,
   InputAdornment,
-  IconButton
+  IconButton,
+  Snackbar,
+  Link
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -25,6 +27,7 @@ const Login = () => {
   });
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -49,6 +52,10 @@ const Login = () => {
     });
   };
 
+  const handleCloseSuccess = () => {
+    setSuccessMessage('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -57,14 +64,24 @@ const Login = () => {
       const response = await axiosInstance.post('/api/login/', formData);
       
       if (response.data.status === 'success') {
+        setSuccessMessage('Login successful! Redirecting...');
+        
         localStorage.setItem('accessToken', response.data.token);
         localStorage.setItem('refreshToken', response.data.refresh);
         localStorage.setItem('username', response.data.username);
         localStorage.setItem('userId', response.data.user_id);
+        localStorage.setItem('userRole', response.data.role);
 
         axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
         
-        window.location.replace('/dashboard'); // Use window.location.replace
+        // Redirect based on user role
+        setTimeout(() => {
+          if (response.data.role === 'admin') {
+            window.location.replace('/dashboard');
+          } else {
+            window.location.replace('/user/dashboard');
+          }
+        }, 1500);
       } else {
         setError(response.data.message || 'Login failed');
       }
@@ -84,6 +101,27 @@ const Login = () => {
         padding: '20px'
       }}
     >
+      <Snackbar
+        open={!!successMessage}
+        autoHideDuration={2000}
+        onClose={handleCloseSuccess}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleCloseSuccess}
+          severity="success"
+          variant="filled"
+          sx={{
+            width: '100%',
+            boxShadow: 3,
+            fontSize: '1.1rem',
+            mb: 2
+          }}
+        >
+          {successMessage}
+        </Alert>
+      </Snackbar>
+
       <Container maxWidth="sm">
         <Paper
           elevation={10}
@@ -225,6 +263,13 @@ const Login = () => {
                 Sign In
               </Button>
             </Box>
+
+            <Typography align="center" sx={{ mt: 2 }}>
+              Don't have an account?{' '}
+              <Link href="/register" underline="hover">
+                Register here
+              </Link>
+            </Typography>
           </Box>
         </Paper>
       </Container>

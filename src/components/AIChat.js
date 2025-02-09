@@ -40,12 +40,12 @@ const AIChat = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer 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',
+          'Authorization': 'Bearer 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',
           'HTTP-Referer': window.location.href,
           'X-Title': 'Medical Store Assistant'
         },
         body: JSON.stringify({
-          model: "deepseek/deepseek-r1:free",
+          model: "deepseek/deepseek-r1-distill-llama-70b:free",
           messages: [
             {
               role: "system",
@@ -55,9 +55,7 @@ const AIChat = () => {
               role: "user",
               content: input
             }
-          ],
-          temperature: 0.7,
-          top_p: 0.95
+          ]
         })
       });
 

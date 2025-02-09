@@ -30,7 +30,8 @@ class LoginView(APIView):
                 'token': str(refresh.access_token),
                 'refresh': str(refresh),
                 'username': user.username,
-                'user_id': user.id
+                'user_id': user.id,
+                'role': 'admin' if user.is_staff else 'user'  # Add role based on is_staff
             })
         else:
             print(f"Login failed for user: {username}")
