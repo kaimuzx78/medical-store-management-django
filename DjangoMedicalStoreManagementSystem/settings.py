@@ -148,12 +148,12 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_ALL_ORIGINS = True  # For development only
 
 CORS_ALLOW_METHODS = [
-    'DELETE',
     'GET',
-    'OPTIONS',
-    'PATCH',
     'POST',
     'PUT',
+    'PATCH',
+    'DELETE',
+    'OPTIONS'
 ]
 
 CORS_ALLOW_HEADERS = [
@@ -168,10 +168,8 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-CORS_EXPOSE_HEADERS = [
-    'content-disposition',
-    'content-type',
-]
+CORS_EXPOSE_HEADERS = ['Content-Type', 'X-CSRFToken']
+CORS_ALLOW_CREDENTIALS = True
 
 # For development only
 CORS_ORIGIN_ALLOW_ALL = True

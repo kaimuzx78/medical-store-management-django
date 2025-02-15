@@ -13,7 +13,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.views import APIView
 from django.db.models.functions import TruncMonth
 from django.db import transaction
-from django.http import HttpResponse
+from django.http import HttpResponse, FileResponse
 from django.template.loader import render_to_string, get_template
 import pdfkit
 from rest_framework import status
@@ -29,6 +29,7 @@ from django.db import IntegrityError
 import phonenumbers
 from phonenumbers import NumberParseException
 from django.contrib.auth.models import User
+from django.contrib.auth.hashers import check_password
 
 from DjangoMedicalApp.models import Company, CompanyBank, Medicine, MedicalDetails, CompanyAccount, Employee, \
     EmployeeBank, EmployeeSalary, CustomerRequest, Bill, BillDetails, Customer, Order
@@ -37,16 +38,13 @@ from DjangoMedicalApp.serializers import CompanySerliazer, CompanyBankSerializer
     EmployeeBankSerializer, EmployeeSalarySerializer, CustomerSerializer, BillSerializer, BillDetailsSerializer, \
     CustomerRequestSerializer, OrderSerializer
 
-try:
-    # Windows path
-    config = pdfkit.configuration(wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe')
-except Exception:
-    try:
-        # Linux/Mac path
-        config = pdfkit.configuration(wkhtmltopdf='/usr/local/bin/wkhtmltopdf')
-    except Exception:
-        # Fallback to system PATH
-        config = None
+# Configure wkhtmltopdf
+if os.name == 'nt':  # Windows
+    WKHTMLTOPDF_PATH = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
+else:  # Linux/Mac
+    WKHTMLTOPDF_PATH = '/usr/bin/wkhtmltopdf'
+
+config = pdfkit.configuration(wkhtmltopdf=WKHTMLTOPDF_PATH)
 
 #OLD Viewset
 # class CompanyViewSet(viewsets.ModelViewSet):
@@ -606,6 +604,8 @@ class GenerateBillViewSet(viewsets.ViewSet):
             # Return PDF response
             response = HttpResponse(pdf, content_type='application/pdf')
             response['Content-Disposition'] = f'attachment; filename="invoice_{pk}.pdf"'
+            response['Content-Length'] = len(pdf)
+            
             return response
             
         except Exception as e:
@@ -923,42 +923,11 @@ class HomeApiViewset(viewsets.ViewSet):
             return Response({"error": True, "message": str(e)})
 
 class DashboardDataView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         try:
-            today = timezone.now().date()
-            
-            # Get data for the last 30 days
-            start_date = today - timezone.timedelta(days=30)
-            
-            # Get daily sales and profit data
-            daily_data = BillDetails.objects.filter(
-                added_on__date__gte=start_date
-            ).values('added_on__date').annotate(
-                sales=Sum(
-                    ExpressionWrapper(
-                        F('qty') * F('medicine__sell_price'),
-                        output_field=DecimalField(max_digits=10, decimal_places=2)
-                    )
-                ),
-                profit=Sum(
-                    ExpressionWrapper(
-                        F('qty') * (F('medicine__sell_price') - F('medicine__buy_price')),
-                        output_field=DecimalField(max_digits=10, decimal_places=2)
-                    )
-                )
-            ).order_by('added_on__date')
-
-            # Format data for the graph
-            chart_data = [
-                {
-                    'date': item['added_on__date'].strftime('%Y-%m-%d'),
-                    'sales': float(item['sales'] or 0),
-                    'profit': float(item['profit'] or 0)
-                }
-                for item in daily_data
-            ]
-
-            # Calculate other metrics...
             data = {
                 'customer_requests_count': CustomerRequest.objects.count(),
                 'total_bill_amount': BillDetails.objects.aggregate(
@@ -968,32 +937,21 @@ class DashboardDataView(APIView):
                             output_field=DecimalField(max_digits=10, decimal_places=2)
                         )
                     )
-                )['total'] or Decimal('0.00'),
+                ).get('total', 0),  # Use get() with default value
                 'medicines_count': Medicine.objects.count(),
-                'companies_count': Company.objects.count(),
-                'employees_count': Employee.objects.count(),
-                'total_profit': BillDetails.objects.aggregate(
-                    total=Sum(ExpressionWrapper(
-                        F('qty') * (F('medicine__sell_price') - F('medicine__buy_price')),
-                        output_field=FloatField()
-                    ))
-                )['total'] or 0,
-                'expiring_medicines_count': Medicine.objects.filter(
-                    expire_date__lte=timezone.now() + timezone.timedelta(days=30)
-                ).count(),
-                'pending_requests_count': CustomerRequest.objects.filter(status=False).count(),
-                'monthly_data': chart_data,  # Add this for the graph
-                'today_sales': float(today_sales),
-                'today_profit': float(today_profit),
-            }
+                'companies_count': Company.objects.count()
+            }  # Add closing brace here
             
-            return Response(data)
+            return Response({
+                'error': False,
+                'data': data
+            })
+            
         except Exception as e:
-            print(f"Dashboard Error: {str(e)}")
-            return Response(
-                {'error': str(e)}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({
+                'error': True,
+                'message': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class LoginView(APIView):
     def post(self, request):
@@ -1273,10 +1231,13 @@ class OrderMedicineView(APIView):
                 delivery_address=request.data.get('address'),
                 phone=request.data.get('phone'),
                 payment_method=request.data.get('paymentMethod'),
-                description=request.data.get('description'),
+                description=request.data.get('description', ''),  # Get description with empty default
                 prescription=prescription_file,
-                total_price=0.00  # Set initial total price to 0
+                total_price=0.00
             )
+
+            # Debug print
+            print(f"Order created with description: {order.description}")
 
             return Response({
                 "error": False,
@@ -1284,6 +1245,7 @@ class OrderMedicineView(APIView):
                 "data": OrderSerializer(order).data
             })
         except Exception as e:
+            print(f"Error creating order: {str(e)}")
             return Response({
                 "error": True,
                 "message": str(e)
@@ -1294,16 +1256,24 @@ class AdminOrderView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        if not request.user.is_staff:
+        if not request.user.is_staff and not request.user.is_authenticated:
             return Response({
                 "error": True,
                 "message": "Unauthorized"
             }, status=status.HTTP_403_FORBIDDEN)
 
+        # If it's a prescription request
+        if 'prescription' in request.path:
+            return self.get_prescription(request, kwargs.get('order_id'))
+
+        # If it's a bill request
+        if 'bill' in request.path:
+            return self.get_bill(request, kwargs.get('order_id'))
+        
         # If it's a stats request
         if request.path.endswith('/stats/'):
             return self.get_stats(request)
-            
+        
         # Regular orders list request
         try:
             orders = Order.objects.all().order_by('-created_at')
@@ -1389,73 +1359,41 @@ class AdminOrderView(APIView):
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
-    def put(self, request, order_id=None):
-        if not request.user.is_staff:
-            return Response({
-                "error": True,
-                "message": "Unauthorized"
-            }, status=status.HTTP_403_FORBIDDEN)
-
+    def put(self, request, order_id):
         try:
             order = Order.objects.get(id=order_id)
+            serializer = OrderSerializer(order, data=request.data, partial=True)
             
-            # Debug print
-            print("Received data for edit:", request.data)
+            if serializer.is_valid():
+                # Calculate derived fields
+                validated_data = serializer.validated_data
+                if 'buy_price' in validated_data or 'sell_price' in validated_data or 'quantity' in validated_data:
+                    buy_price = validated_data.get('buy_price', order.buy_price)
+                    sell_price = validated_data.get('sell_price', order.sell_price)
+                    quantity = validated_data.get('quantity', order.quantity)
+                    
+                    validated_data['total_cost'] = buy_price * quantity
+                    validated_data['total_price'] = sell_price * quantity
+                    validated_data['profit'] = (sell_price - buy_price) * quantity
+                
+                serializer.save()
+                update_dashboard_data()
+                
+                return Response({
+                    "error": False,
+                    "message": "Order updated successfully",
+                    "data": serializer.data
+                })
             
-            # Update all fields that are present in the request
-            fields_to_update = [
-                'patient_name', 'age', 'gender', 'phone', 'delivery_address',
-                'payment_method', 'status', 'admin_note', 'buy_price',
-                'sell_price', 'quantity'
-            ]
-            
-            for field in fields_to_update:
-                if field in request.data and request.data[field] is not None:
-                    if field in ['buy_price', 'sell_price']:
-                        setattr(order, field, Decimal(str(request.data[field])))
-                    elif field == 'quantity':
-                        setattr(order, field, int(request.data[field]))
-                    else:
-                        setattr(order, field, request.data[field])
-
-            # Calculate totals if price fields are updated
-            if order.buy_price and order.sell_price and order.quantity:
-                order.total_cost = Decimal(str(order.buy_price)) * Decimal(str(order.quantity))
-                order.total_price = Decimal(str(order.sell_price)) * Decimal(str(order.quantity))
-                order.profit = order.total_price - order.total_cost
-
-            # Debug print
-            print(f"Order {order_id} updated values:")
-            print(f"Buy Price: {order.buy_price}")
-            print(f"Sell Price: {order.sell_price}")
-            print(f"Quantity: {order.quantity}")
-            print(f"Total Cost: {order.total_cost}")
-            print(f"Total Price: {order.total_price}")
-            print(f"Profit: {order.profit}")
-            
-            order.save()
-
-            # Return updated order data
-            serializer = OrderSerializer(order, context={'request': request})
-            return Response({
-                "error": False,
-                "message": "Order updated successfully",
-                "data": serializer.data
-            })
-
-        except Order.DoesNotExist:
             return Response({
                 "error": True,
-                "message": "Order not found"
-            }, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            print(f"Error updating order: {str(e)}")
-            print(f"Error type: {type(e)}")
-            print(f"Error args: {e.args}")
-            return Response({
-                "error": True,
-                "message": str(e)
+                "message": serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
+        
+        except Order.DoesNotExist:
+            return Response({"error": True, "message": "Order not found"}, status=404)
+        except Exception as e:
+            return Response({"error": True, "message": str(e)}, status=400)
 
     def post(self, request):
         if not request.user.is_staff:
@@ -1478,6 +1416,127 @@ class AdminOrderView(APIView):
                 "message": str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
 
+    def get_bill(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id)
+            
+            # Debug print
+            print(f"Generating bill for order {order_id}")
+            
+            # Prepare context for the template
+            context = {
+                'order': order,
+                'company_name': 'Your Medical Store',
+                'company_address': 'Your Address',
+                'company_phone': 'Your Phone',
+                'company_email': 'your@email.com',
+                'date': order.created_at.strftime('%d-%m-%Y'),
+                'bill_no': f'BILL-{order.id:06d}'
+            }
+            
+            try:
+                # Generate HTML
+                html_string = render_to_string('bill_template.html', context)
+                
+                # Convert HTML to PDF using pdfkit
+                options = {
+                    'page-size': 'A4',
+                    'margin-top': '0.75in',
+                    'margin-right': '0.75in',
+                    'margin-bottom': '0.75in',
+                    'margin-left': '0.75in',
+                    'encoding': 'UTF-8',
+                    'no-outline': None,
+                    'quiet': ''
+                }
+                
+                # Create PDF
+                pdf = pdfkit.from_string(
+                    html_string, 
+                    False,
+                    options=options,
+                    configuration=config
+                )
+                
+                # Create response with correct headers
+                response = HttpResponse(content_type='application/pdf')
+                response.write(pdf)
+                response['Content-Disposition'] = f'inline; filename="bill_{order_id}.pdf"'
+                response['Content-Length'] = len(pdf)
+                
+                return response
+                
+            except Exception as e:
+                print(f"PDF Generation Error: {str(e)}")
+                return Response({
+                    "error": True,
+                    "message": f"Failed to generate PDF: {str(e)}"
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+        except Order.DoesNotExist:
+            return Response({
+                "error": True,
+                "message": "Order not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"Error generating bill: {str(e)}")
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    def get_prescription(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id)
+            # Verify that the user has permission to view this prescription
+            if not request.user.is_staff and order.user != request.user:
+                return Response({
+                    "error": True,
+                    "message": "You don't have permission to view this prescription"
+                }, status=status.HTTP_403_FORBIDDEN)
+
+            if order.prescription:
+                file_path = os.path.join(settings.MEDIA_ROOT, str(order.prescription))
+                if os.path.exists(file_path):
+                    # Get the file extension
+                    file_name = os.path.basename(file_path)
+                    ext = os.path.splitext(file_name)[1].lower()
+                    
+                    # Set the appropriate content type
+                    content_type = 'application/pdf' if ext == '.pdf' else 'image/jpeg' if ext in ['.jpg', '.jpeg'] else 'image/png' if ext == '.png' else 'application/octet-stream'
+                    
+                    # Debug print
+                    print(f"Serving prescription file: {file_path}")
+                    print(f"Content type: {content_type}")
+                    
+                    response = FileResponse(
+                        open(file_path, 'rb'),
+                        content_type=content_type,
+                        as_attachment=False
+                    )
+                    return response
+                else:
+                    print(f"File not found: {file_path}")
+                    return Response({
+                        "error": True,
+                        "message": "Prescription file not found"
+                    }, status=status.HTTP_404_NOT_FOUND)
+            return Response({
+                "error": True,
+                "message": "No prescription attached to this order"
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Order.DoesNotExist:
+            return Response({
+                "error": True,
+                "message": "Order not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print(f"Error serving prescription: {str(e)}")
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 def update_dashboard_data():
     # Update your dashboard calculations here
     # For example:
@@ -1495,3 +1554,145 @@ company_creat=CompanyViewSet.as_view({"post":"create"})
 company_update=CompanyViewSet.as_view({"put":"update"})
 
 employee_delete = EmployeeViewset.as_view({"delete": "destroy"})
+
+class OrderViewSet(viewsets.ViewSet):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def update(self, request, pk=None):
+        try:
+            order = Order.objects.get(id=pk)
+            
+            # If status is being changed to rejected, only update status and admin_note
+            if request.data.get('status') == 'rejected':
+                order.status = 'rejected'
+                order.admin_note = request.data.get('admin_note', '')
+            else:
+                # For approval, validate and update all fields
+                serializer = OrderSerializer(order, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                else:
+                    return Response({
+                        "error": True,
+                        "message": serializer.errors
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            
+            order.save()
+            
+            return Response({
+                "error": False,
+                "message": "Order Updated Successfully"
+            })
+        except Exception as e:
+            print(f"Error updating order: {str(e)}")
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+class UserProfileView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            user = request.user
+            return Response({
+                "error": False,
+                "data": {
+                    "username": user.username,
+                    "email": user.email,
+                }
+            })
+        except Exception as e:
+            print(f"Profile Error: {str(e)}")
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request):
+        try:
+            user = request.user
+            username = request.data.get('username')
+            email = request.data.get('email')
+
+            if User.objects.exclude(id=user.id).filter(username=username).exists():
+                return Response({
+                    "error": True,
+                    "message": "Username already taken"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            user.username = username
+            user.email = email
+            user.save()
+
+            return Response({
+                "error": False,
+                "message": "Profile updated successfully",
+                "data": {
+                    "username": user.username,
+                    "email": user.email
+                }
+            })
+        except Exception as e:
+            print(f"Update Error: {str(e)}")
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+class ChangePasswordView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+        try:
+            user = request.user
+            current_password = request.data.get('current_password')
+            new_password = request.data.get('new_password')
+
+            if not current_password or not new_password:
+                return Response({
+                    "error": True,
+                    "message": "Both current and new passwords are required"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Verify current password
+            if not check_password(current_password, user.password):
+                return Response({
+                    "error": True,
+                    "message": "Current password is incorrect"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Update password
+            user.set_password(new_password)
+            user.save()
+
+            # Generate new token since password changed
+            refresh = RefreshToken.for_user(user)
+            
+            return Response({
+                "error": False,
+                "message": "Password updated successfully",
+                "data": {
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh)
+                }
+            })
+        except Exception as e:
+            print(f"Error changing password: {str(e)}")
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+# Add this TestView class
+class TestView(APIView):
+    def get(self, request):
+        print("Test endpoint hit!")
+        return Response({
+            "error": False,
+            "message": "Test endpoint working"
+        })

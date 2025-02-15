@@ -24,7 +24,8 @@ import {
   LocalPharmacy as MedicineIcon,
   History as HistoryIcon,
   ShoppingCart as OrderIcon,
-  NotificationsActive as RequestIcon
+  NotificationsActive as RequestIcon,
+  ShoppingCart
 } from '@mui/icons-material';
 import axiosInstance from '../utils/axios';
 
@@ -164,14 +165,9 @@ const Sidebar = () => {
     { text: 'Company', icon: <BusinessOutlined />, path: '/manage-company-account' },
     { text: 'Manage Employee', icon: <People />, path: '/manage-employee' },
     { text: 'Generate Bill', icon: <Receipt />, path: '/generate-bill' },
-    { 
-      text: 'Medicine Orders', 
-      icon: <OrderIcon />, 
-      path: '/manage-orders',
-      badge: pendingOrders
-    },
     { text: 'Customer Request', icon: <RequestIcon />, path: '/customer-request' },
     { text: 'Bill History', icon: <HistoryIcon />, path: '/bill-history' },
+    { text: 'Manage Orders', icon: <ShoppingCart />, path: '/manage-orders', badge: pendingOrders },
   ];
 
   return (

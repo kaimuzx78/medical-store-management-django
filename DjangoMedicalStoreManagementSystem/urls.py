@@ -84,4 +84,8 @@ urlpatterns = [
         'put': 'update',
         'delete': 'destroy'
     }), name='employee-bank-detail'),
-]+static(settings.MEDIA_URL,document_root=settings.MEDIA_ROOT)
+]
+
+# Add these lines at the end of the file
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

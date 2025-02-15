@@ -12,13 +12,15 @@ import {
   Fab
 } from '@mui/material';
 import { Send, SmartToy, Close, Chat } from '@mui/icons-material';
+import { useTheme } from '@mui/material/styles';
 
-const AIChat = () => {
+const AIChat = ({ userType = 'user' }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
+  const theme = useTheme();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -27,6 +29,13 @@ const AIChat = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const getSystemMessage = () => {
+    if (userType === 'admin') {
+      return "You are a helpful medical store assistant. You help with inventory management, medicine information, and pharmacy operations. Keep responses professional and concise.";
+    }
+    return "You are a helpful medical store assistant for patients. You can provide general medicine information, help with ordering process, and answer basic health queries. Note that this is not medical advice - always consult a healthcare professional for medical decisions.";
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -42,14 +51,14 @@ const AIChat = () => {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer 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',
           'HTTP-Referer': window.location.href,
-          'X-Title': 'Medical Store Assistant'
+          'X-Title': userType === 'admin' ? 'Medical Store Admin Assistant' : 'Medical Store Patient Assistant'
         },
         body: JSON.stringify({
           model: "deepseek/deepseek-r1-distill-llama-70b:free",
           messages: [
             {
               role: "system",
-              content: "You are a helpful medical store assistant. You help with inventory management, medicine information, and pharmacy operations. Keep responses professional and concise."
+              content: getSystemMessage()
             },
             {
               role: "user",
@@ -87,7 +96,11 @@ const AIChat = () => {
           position: 'fixed',
           bottom: 32,
           right: 32,
-          zIndex: 1000
+          zIndex: 1000,
+          bgcolor: theme => theme.palette.primary.main,
+          '&:hover': {
+            bgcolor: theme => theme.palette.primary.dark,
+          }
         }}
       >
         <Chat />
@@ -119,17 +132,26 @@ const AIChat = () => {
           color: 'white',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between'
+          justifyContent: 'space-between',
+          borderTopLeftRadius: 8,
+          borderTopRightRadius: 8,
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <SmartToy />
-          <Typography variant="h6">Medical Assistant</Typography>
+          <Typography variant="h6">
+            {userType === 'admin' ? 'Medical Assistant' : 'Patient Assistant'}
+          </Typography>
         </Box>
         <IconButton 
           size="small" 
           onClick={() => setIsOpen(false)}
-          sx={{ color: 'white' }}
+          sx={{ 
+            color: 'white',
+            '&:hover': {
+              bgcolor: 'rgba(255,255,255,0.1)'
+            }
+          }}
         >
           <Close />
         </IconButton>
@@ -161,6 +183,7 @@ const AIChat = () => {
                 color: msg.isAI ? 'text.primary' : 'white',
                 borderRadius: 2,
                 p: 1.5,
+                boxShadow: 1,
               }}
             >
               <Typography variant="body2">

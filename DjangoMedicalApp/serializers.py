@@ -144,12 +144,61 @@ class OrderSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Order
-        fields = [
-            'id', 'username', 'patient_name', 'age', 'gender',
-            'delivery_address', 'phone', 'medicine_name', 'quantity',
-            'buy_price', 'sell_price', 'total_cost', 'total_price', 'profit',
-            'payment_method', 'prescription', 'prescription_url',
-            'description', 'status', 'created_at', 'admin_note'
-        ]
-        read_only_fields = ['id', 'username', 'medicine_name', 'status', 'created_at', 'admin_note']
+        fields = '__all__'
+        read_only_fields = ('id', 'created_at')
 
+    def validate(self, data):
+        # If status is being changed to approved, validate required fields
+        if data.get('status') == 'approved':
+            required_fields = ['buy_price', 'sell_price', 'quantity']
+            for field in required_fields:
+                if field not in data:
+                    raise serializers.ValidationError({
+                        field: f"{field} is required for order approval"
+                    })
+                
+                # Validate numeric fields
+                try:
+                    if field in ['buy_price', 'sell_price']:
+                        value = float(data[field])
+                        if value <= 0:
+                            raise serializers.ValidationError({
+                                field: f"{field} must be greater than 0"
+                            })
+                    elif field == 'quantity':
+                        value = int(data[field])
+                        if value <= 0:
+                            raise serializers.ValidationError({
+                                field: "quantity must be greater than 0"
+                            })
+                except (ValueError, TypeError):
+                    raise serializers.ValidationError({
+                        field: f"Invalid value for {field}"
+                    })
+
+            # Calculate derived fields
+            data['total_cost'] = float(data['buy_price']) * int(data['quantity'])
+            data['total_price'] = float(data['sell_price']) * int(data['quantity'])
+            data['profit'] = data['total_price'] - data['total_cost']
+
+        return data
+
+    def update(self, instance, validated_data):
+        print(f"Updating order {instance.id} with data:", validated_data)
+        
+        # If rejecting, only update status and admin_note
+        if validated_data.get('status') == 'rejected':
+            instance.status = validated_data.get('status', instance.status)
+            instance.admin_note = validated_data.get('admin_note', instance.admin_note)
+        else:
+            # For other updates, update all provided fields
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+        
+        try:
+            instance.save()
+            print(f"Order {instance.id} updated successfully")
+            return instance
+        except Exception as e:
+            print(f"Error saving order {instance.id}:", str(e))
+            raise serializers.ValidationError(f"Error saving order: {str(e)}")

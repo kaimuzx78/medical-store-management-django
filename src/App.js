@@ -17,6 +17,7 @@ import OrderMedicine from './pages/OrderMedicine';
 import Register from './pages/Register';
 import UserLayout from './components/UserLayout';
 import OrderHistory from './pages/OrderHistory';
+import UserProfile from './pages/UserProfile';
 import ManageOrders from './pages/ManageOrders';
 
 // Separate route components for different user types
@@ -30,7 +31,7 @@ const AdminRoute = ({ children }) => {
   return <MainLayout>{children}</MainLayout>;
 };
 
-const UserRoute = ({ children }) => {
+const UserRouteWithLayout = ({ children }) => {
   const isAuthenticated = !!localStorage.getItem('accessToken');
   const isUser = localStorage.getItem('userRole') === 'user';
   
@@ -48,9 +49,10 @@ function App() {
         <Route path="/register" element={<Register />} />
         
         {/* User Routes */}
-        <Route path="/user/dashboard" element={<UserRoute><UserDashboard /></UserRoute>} />
-        <Route path="/user/order-medicine" element={<UserRoute><OrderMedicine /></UserRoute>} />
-        <Route path="/user/order-history" element={<UserRoute><OrderHistory /></UserRoute>} />
+        <Route path="/user/dashboard" element={<UserRouteWithLayout><UserDashboard /></UserRouteWithLayout>} />
+        <Route path="/user/order-medicine" element={<UserRouteWithLayout><OrderMedicine /></UserRouteWithLayout>} />
+        <Route path="/user/order-history" element={<UserRouteWithLayout><OrderHistory /></UserRouteWithLayout>} />
+        <Route path="/user/profile" element={<UserRouteWithLayout><UserProfile /></UserRouteWithLayout>} />
         
         {/* Admin Routes */}
         <Route path="/" element={<AdminRoute><Dashboard /></AdminRoute>} />

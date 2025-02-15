@@ -41,6 +41,11 @@ urlpatterns = [
     path('api/admin/orders/', views.AdminOrderView.as_view(), name='admin-orders'),
     path('api/admin/orders/bulk-delete/', views.AdminOrderView.as_view(), name='admin-orders-bulk-delete'),
     path('api/admin/orders/<int:order_id>/edit/', views.AdminOrderView.as_view(), name='admin-order-edit'),
+    path('api/admin/orders/<int:order_id>/bill/', views.AdminOrderView.as_view(), name='order-bill'),
+    path('api/admin/orders/<int:order_id>/prescription/', views.AdminOrderView.as_view(), name='order-prescription'),
+    path('api/test/', views.TestView.as_view(), name='test'),
+    path('api/user/profile/', views.UserProfileView.as_view(), name='user-profile'),
+    path('api/user/change-password/', views.ChangePasswordView.as_view(), name='change-password'),
 ]
 
 urlpatterns += router.urls 
