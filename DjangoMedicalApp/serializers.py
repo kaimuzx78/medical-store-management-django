@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.conf import settings
 
 from DjangoMedicalApp.models import Company, CompanyBank, Medicine, MedicalDetails, Employee, Customer, Bill, \
-    CustomerRequest, CompanyAccount, EmployeeBank, EmployeeSalary, BillDetails, Order
+    CustomerRequest, CompanyAccount, EmployeeBank, EmployeeSalary, BillDetails, Order, Notification
 
 
 class CompanySerliazer(serializers.ModelSerializer):
@@ -133,6 +133,7 @@ class OrderSerializer(serializers.ModelSerializer):
     medicine_name = serializers.CharField(source='medicine.name', read_only=True, required=False)
     username = serializers.CharField(source='user.username', read_only=True)
     prescription_url = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
     
     def get_prescription_url(self, obj):
         if obj.prescription:
@@ -141,6 +142,13 @@ class OrderSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.prescription.url)
             return obj.prescription.url
         return None
+    
+    def get_user(self, obj):
+        return {
+            'id': obj.user.id,
+            'username': obj.user.username,
+            'email': obj.user.email
+        }
     
     class Meta:
         model = Order
@@ -202,3 +210,8 @@ class OrderSerializer(serializers.ModelSerializer):
         except Exception as e:
             print(f"Error saving order {instance.id}:", str(e))
             raise serializers.ValidationError(f"Error saving order: {str(e)}")
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ['id', 'message', 'active', 'important', 'created_at', 'html_content']

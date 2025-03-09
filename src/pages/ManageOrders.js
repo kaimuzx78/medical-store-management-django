@@ -35,6 +35,7 @@ import {
   Divider,
   InputAdornment,
   Snackbar,
+  Avatar
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -451,7 +452,8 @@ const ManageOrders = () => {
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [editMode, setEditMode] = useState(false);
-  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [openApproveDialog, setOpenApproveDialog] = useState(false);
+  const [openRejectDialog, setOpenRejectDialog] = useState(false);
   const [orderToApprove, setOrderToApprove] = useState(null);
   const [updating, setUpdating] = useState(false);
   const [adminNote, setAdminNote] = useState('');
@@ -536,6 +538,30 @@ const ManageOrders = () => {
       ),
     },
     {
+      field: 'user',
+      headerName: 'Requested By',
+      width: 180,
+      renderCell: (params) => (
+        <Chip
+          avatar={<Avatar sx={{ bgcolor: 'primary.main', color: 'white' }}>{params.value.username[0]}</Avatar>}
+          label={
+            <Box sx={{ lineHeight: 1.2 }}>
+              <Typography variant="subtitle2">{params.value.username}</Typography>
+              <Typography variant="caption" color="textSecondary">
+                ID: {params.value.id}
+              </Typography>
+            </Box>
+          }
+          variant="outlined"
+          sx={{ 
+            borderRadius: 2,
+            borderColor: 'divider',
+            '& .MuiChip-label': { px: 1.5, py: 1 }
+          }}
+        />
+      )
+    },
+    {
       field: 'prescription_url',
       headerName: 'Prescription',
       width: 120,
@@ -610,7 +636,7 @@ const ManageOrders = () => {
               <Tooltip title="Approve">
                 <IconButton
                   color="success"
-                  onClick={() => handleApprove(params.row)}
+                  onClick={() => handleApproveClick(params.row)}
                 >
                   <ApproveIcon />
                 </IconButton>
@@ -618,7 +644,7 @@ const ManageOrders = () => {
               <Tooltip title="Reject">
                 <IconButton
                   color="error"
-                  onClick={() => handleReject(params.row)}
+                  onClick={() => handleRejectClick(params.row)}
                 >
                   <RejectIcon />
                 </IconButton>
@@ -1082,25 +1108,14 @@ const ManageOrders = () => {
     </GridToolbarContainer>
   );
 
-  const handleApprove = (order) => {
-    setOrderToApprove(order);
-    setApprovalDialogOpen(true);
-    // Ensure edit dialog is closed
-    setEditMode(false);
-    setSelectedOrder(null);
-    // Initialize form fields with order data
-    setBuyPrice(order.buy_price || '');
-    setSellPrice(order.sell_price || '');
-    setQuantity(order.quantity || '');
-    setAdminNote('');
+  const handleApproveClick = (order) => {
+    setSelectedOrder(order);
+    setOpenApproveDialog(true);
   };
 
-  const handleReject = (order) => {
-    setOrderToApprove(order);
-    setApprovalDialogOpen(true);
-    // Ensure edit dialog is closed
-    setEditMode(false);
-    setSelectedOrder(null);
+  const handleRejectClick = (order) => {
+    setSelectedOrder(order);
+    setOpenRejectDialog(true);
   };
 
   const handlePrintBill = async (order) => {
@@ -1139,7 +1154,8 @@ const ManageOrders = () => {
   };
 
   const handleCloseApproval = () => {
-    setApprovalDialogOpen(false);
+    setOpenApproveDialog(false);
+    setOpenRejectDialog(false);
     setOrderToApprove(null);
     // Clear form fields
     setAdminNote('');
@@ -1325,14 +1341,12 @@ const ManageOrders = () => {
           columns={columns}
           pageSize={10}
           rowsPerPageOptions={[10]}
-          checkboxSelection
-          disableSelectionOnClick
+          checkboxSelection={false}
+          disableRowSelectionOnClick
           autoHeight
           components={{
             Toolbar: CustomToolbar
           }}
-          onSelectionModelChange={setSelectedRows}
-          selectionModel={selectedRows}
           getRowId={(row) => row.id}
           sx={{
             border: 'none',
@@ -1413,7 +1427,7 @@ const ManageOrders = () => {
 
       {/* Order Status Update Dialog */}
       <Dialog
-        open={approvalDialogOpen}
+        open={openApproveDialog}
         onClose={handleCloseApproval}
         aria-labelledby="order-status-dialog-title"
         keepMounted={false}
@@ -1470,7 +1484,7 @@ const ManageOrders = () => {
             Cancel
           </Button>
           <Button
-            onClick={() => handleStatusUpdate(orderToApprove?.id, 'approved')}
+            onClick={() => handleStatusUpdate(selectedOrder?.id, 'approved')}
             variant="contained"
             color="success"
             disabled={updating}
@@ -1479,6 +1493,48 @@ const ManageOrders = () => {
               <CircularProgress size={24} />
             ) : (
               'Approve Order'
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={openRejectDialog}
+        onClose={handleCloseApproval}
+        aria-labelledby="order-status-dialog-title"
+        keepMounted={false}
+        disablePortal
+      >
+        <DialogTitle id="order-status-dialog-title">
+          Reject Order
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label="Admin Note"
+              multiline
+              rows={4}
+              value={adminNote}
+              onChange={(e) => setAdminNote(e.target.value)}
+              margin="normal"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseApproval} disabled={updating}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => handleStatusUpdate(selectedOrder?.id, 'rejected')}
+            variant="contained"
+            color="error"
+            disabled={updating}
+          >
+            {updating ? (
+              <CircularProgress size={24} />
+            ) : (
+              'Reject Order'
             )}
           </Button>
         </DialogActions>

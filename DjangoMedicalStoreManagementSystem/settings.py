@@ -189,3 +189,5 @@ if not os.path.exists(MEDIA_ROOT):
 WKHTMLTOPDF_CMD = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'  # Windows
 # OR for Linux/Mac:
 # WKHTMLTOPDF_CMD = '/usr/local/bin/wkhtmltopdf'
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

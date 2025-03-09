@@ -41,6 +41,17 @@ const UserRouteWithLayout = ({ children }) => {
   return <UserLayout>{children}</UserLayout>;
 };
 
+// Add this ProtectedRoute component
+const ProtectedRoute = ({ children }) => {
+  const isAuthenticated = !!localStorage.getItem('accessToken');
+  const userRole = localStorage.getItem('userRole');
+  
+  if (!isAuthenticated) return <Navigate to="/login" />;
+  if (userRole === 'admin') return <Navigate to="/dashboard" />;
+  
+  return children;
+};
+
 function App() {
   return (
     <Router>
@@ -49,10 +60,21 @@ function App() {
         <Route path="/register" element={<Register />} />
         
         {/* User Routes */}
-        <Route path="/user/dashboard" element={<UserRouteWithLayout><UserDashboard /></UserRouteWithLayout>} />
-        <Route path="/user/order-medicine" element={<UserRouteWithLayout><OrderMedicine /></UserRouteWithLayout>} />
-        <Route path="/user/order-history" element={<UserRouteWithLayout><OrderHistory /></UserRouteWithLayout>} />
-        <Route path="/user/profile" element={<UserRouteWithLayout><UserProfile /></UserRouteWithLayout>} />
+        <Route
+          path="/user/*"
+          element={
+            <ProtectedRoute>
+              <UserLayout>
+                <Routes>
+                  <Route path="dashboard" element={<UserDashboard />} />
+                  <Route path="order-medicine" element={<OrderMedicine />} />
+                  <Route path="order-history" element={<OrderHistory />} />
+                  <Route path="profile" element={<UserProfile />} />
+                </Routes>
+              </UserLayout>
+            </ProtectedRoute>
+          }
+        />
         
         {/* Admin Routes */}
         <Route path="/" element={<AdminRoute><Dashboard /></AdminRoute>} />

@@ -2,6 +2,7 @@ from django.urls import path
 from .auth import LoginView, VerifyTokenView
 from . import views
 from rest_framework.routers import DefaultRouter
+from .views import NotificationView, ActiveNotificationsView
 
 # Update the company_list line to include delete
 company_list = views.CompanyViewSet.as_view({
@@ -46,6 +47,9 @@ urlpatterns = [
     path('api/test/', views.TestView.as_view(), name='test'),
     path('api/user/profile/', views.UserProfileView.as_view(), name='user-profile'),
     path('api/user/change-password/', views.ChangePasswordView.as_view(), name='change-password'),
+    path('api/notifications/active/', ActiveNotificationsView.as_view(), name='active-notifications'),
+    path('api/notifications/<int:pk>/', NotificationView.as_view(), name='notification-detail'),
+    path('api/notifications/', NotificationView.as_view(), name='notifications'),
 ]
 
 urlpatterns += router.urls 

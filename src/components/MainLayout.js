@@ -11,6 +11,7 @@ import {
   Logout as LogoutIcon,
   LocalHospital as LogoIcon,
   ShoppingCart as ShoppingCartIcon,
+  Notifications as NotificationsIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../utils/axiosInstance';
