@@ -26,7 +26,11 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'your-default-secret-key')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', '') != 'False'
 
-ALLOWED_HOSTS = ['medical-store-management.onrender.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = [
+    'medical-store-backend.onrender.com',
+    'localhost',
+    '127.0.0.1'
+]
 
 
 # Application definition
@@ -155,7 +159,7 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 CORS_ALLOWED_ORIGINS = [
-    "https://your-frontend-url.onrender.com",
+    "https://medical-store-frontend.onrender.com",
     "http://localhost:3000",
 ]
 

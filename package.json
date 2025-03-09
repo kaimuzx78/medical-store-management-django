@@ -1,6 +1,6 @@
 {
   "name": "medical-store-management",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -25,9 +25,9 @@
     "yup": "^1.6.1"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
+    "start": "cd frontend && npm start",
+    "build": "cd frontend && npm install && npm run build",
+    "test": "cd frontend && npm test",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -47,5 +47,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "engines": {
+    "node": "16.x"
   }
 }
