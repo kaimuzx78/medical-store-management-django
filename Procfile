@@ -1,1 +1,1 @@
-web: gunicorn DjangoMedicalStoreManagementSystem.wsgi --log-file -
+web: gunicorn DjangoMedicalStoreManagementSystem.wsgi:application
