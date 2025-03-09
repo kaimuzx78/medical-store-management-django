@@ -25,9 +25,9 @@
     "yup": "^1.6.1"
   },
   "scripts": {
-    "start": "cd frontend && npm start",
-    "build": "cd frontend && npm install && npm run build",
-    "test": "cd frontend && npm test",
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
