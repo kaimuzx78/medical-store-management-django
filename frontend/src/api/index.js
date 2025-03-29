@@ -1,0 +1,1 @@
+const API_URL = 'https://your-backend-name.vercel.app/api'; 
