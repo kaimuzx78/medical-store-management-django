@@ -144,8 +144,8 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'frontend/build/static')]
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "https://*.vercel.app"
+    "https://medical-store-frontend.vercel.app",
+    "http://localhost:3000"
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True  # For development only
