@@ -25,7 +25,8 @@ import {
   History as HistoryIcon,
   ShoppingCart as OrderIcon,
   NotificationsActive as RequestIcon,
-  ShoppingCart
+  ShoppingCart,
+  Notifications as NotificationsIcon
 } from '@mui/icons-material';
 import axiosInstance from '../utils/axios';
 

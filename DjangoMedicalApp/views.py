@@ -32,11 +32,11 @@ from django.contrib.auth.models import User
 from django.contrib.auth.hashers import check_password
 
 from DjangoMedicalApp.models import Company, CompanyBank, Medicine, MedicalDetails, CompanyAccount, Employee, \
-    EmployeeBank, EmployeeSalary, CustomerRequest, Bill, BillDetails, Customer, Order
+    EmployeeBank, EmployeeSalary, CustomerRequest, Bill, BillDetails, Customer, Order, Notification
 from DjangoMedicalApp.serializers import CompanySerliazer, CompanyBankSerializer, MedicineSerliazer, \
     MedicalDetailsSerializer, MedicalDetailsSerializerSimple, CompanyAccountSerializer, EmployeeSerializer, \
     EmployeeBankSerializer, EmployeeSalarySerializer, CustomerSerializer, BillSerializer, BillDetailsSerializer, \
-    CustomerRequestSerializer, OrderSerializer
+    CustomerRequestSerializer, OrderSerializer, NotificationSerializer
 
 # Configure wkhtmltopdf
 if os.name == 'nt':  # Windows
@@ -1696,3 +1696,110 @@ class TestView(APIView):
             "error": False,
             "message": "Test endpoint working"
         })
+
+class NotificationView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            notifications = Notification.objects.all()
+            serializer = NotificationSerializer(notifications, many=True)
+            return Response({
+                "error": False,
+                "message": "Notifications fetched successfully",
+                "data": serializer.data
+            })
+        except Exception as e:
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def post(self, request):
+        try:
+            serializer = NotificationSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "error": False,
+                    "message": "Notification created successfully",
+                    "data": serializer.data
+                }, status=status.HTTP_201_CREATED)
+            return Response({
+                "error": True,
+                "message": serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            print(f"Error creating notification: {str(e)}")  # Add debug print
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def put(self, request, pk):
+        try:
+            notification = Notification.objects.get(pk=pk)
+            serializer = NotificationSerializer(notification, data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "error": False,
+                    "message": "Notification updated successfully",
+                    "data": serializer.data
+                })
+            return Response({
+                "error": True,
+                "message": serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Notification.DoesNotExist:
+            return Response({
+                "error": True,
+                "message": "Notification not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def delete(self, request, pk):
+        try:
+            notification = Notification.objects.get(pk=pk)
+            notification.delete()
+            return Response({
+                "error": False,
+                "message": "Notification deleted successfully"
+            }, status=status.HTTP_204_NO_CONTENT)
+        except Notification.DoesNotExist:
+            return Response({
+                "error": True,
+                "message": "Notification not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ActiveNotificationsView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            # Only get active notifications
+            notifications = Notification.objects.filter(active=True)
+            serializer = NotificationSerializer(notifications, many=True)
+            print("Active notifications:", serializer.data)  # Debug print
+            return Response({
+                "error": False,
+                "message": "Active notifications fetched successfully",
+                "data": serializer.data
+            })
+        except Exception as e:
+            print("Error fetching active notifications:", str(e))  # Debug print
+            return Response({
+                "error": True,
+                "message": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

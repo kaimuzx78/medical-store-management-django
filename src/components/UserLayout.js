@@ -4,10 +4,19 @@ import UserSidebar from './UserSidebar';
 
 const UserLayout = ({ children }) => {
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
-      <UserSidebar />
-      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-        {children}
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <Box sx={{ display: 'flex', flex: 1 }}>
+        <UserSidebar />
+        <Box 
+          component="main" 
+          sx={{ 
+            flexGrow: 1, 
+            p: 3,
+            overflowX: 'hidden'
+          }}
+        >
+          {children}
+        </Box>
       </Box>
     </Box>
   );

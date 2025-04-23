@@ -209,6 +209,20 @@ class Order(models.Model):
             self.profit = self.total_price - self.total_cost
         super().save(*args, **kwargs)
 
+class Notification(models.Model):
+    message = models.TextField(max_length=1000)
+    active = models.BooleanField(default=True)
+    important = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    html_content = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.message
+
 
 
 
