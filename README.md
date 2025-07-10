@@ -1,15 +1,6 @@
-Sure, KAEEMUDDIN! Here's a polished `README.md` for your **Medical Store Management System** Django project, complete with setup instructions and a YouTube walkthrough link:
 
 ```markdown
 # 💊 Medical Store Management System (Django)
-
-A web-based application built with Django to streamline the operations of a medical store. It handles inventory, billing, customer management, and more — all from a centralized dashboard.
-
-## 📽️ Project Demo
-
-Watch the full setup and walkthrough on YouTube: [Medical Store Management System - Setup Guide](https://youtu.be/vV2tb7DC9mA)
-
----
 
 ## 🚀 Features
 
